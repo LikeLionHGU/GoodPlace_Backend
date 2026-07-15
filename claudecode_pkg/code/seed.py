@@ -1,7 +1,11 @@
 """
-시드 데이터: 업종 6종 + 양덕동 공실 3곳 + 동네 투표 4건 (v3 — 동네 투표 전환).
+시드 데이터: 업종 6대분류×8세부(48종) + 양덕동 공실 3곳 + 동네 투표 4건 (v3 — 동네 투표 전환).
 전부 is_seed=1 로 표시하여 실데이터와 구분한다 (시연 정직성 요건).
 면적/창업비용/공실 상세/투표는 전부 임시값 -> 나중에 실제 통계·소상공인 API(7단계)로 교체 예정.
+
+48종 이름은 GoodPlace_Front(js/vacancies.js CATEGORY_TAXONOMY)의 헤더 "투표하기" 패널이 쓰는
+세부업종명과 정확히 일치해야 한다 - 프론트는 이 이름으로 industry_id를 조회한다(대분류는 프론트에만
+있고 이 스키마엔 카테고리 컬럼이 없어 이름만 맞추면 된다).
 """
 import json
 
@@ -10,57 +14,63 @@ from routes_vote import snap_to_grid
 
 # 임시값: 실제 통계로 교체 예정. inds_code(247분류)는 매핑표 작업 전이라 빈 값으로 둔다.
 SEED_INDUSTRIES = [
-    {
-        "name": "카페",
-        "min_area_m2": 20,
-        "max_area_m2": 60,
-        "avg_startup_cost_manwon": 5000,
-        "inds_code": "",  # TODO: 247분류 매핑 필요 (소상공인_상가정보_API_명세서 §6 참고)
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "베이커리",
-        "min_area_m2": 25,
-        "max_area_m2": 70,
-        "avg_startup_cost_manwon": 6000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "분식",
-        "min_area_m2": 15,
-        "max_area_m2": 40,
-        "avg_startup_cost_manwon": 3000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "서점문구",
-        "min_area_m2": 20,
-        "max_area_m2": 50,
-        "avg_startup_cost_manwon": 4000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "반찬",
-        "min_area_m2": 10,
-        "max_area_m2": 30,
-        "avg_startup_cost_manwon": 2500,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "과일",
-        "min_area_m2": 10,
-        "max_area_m2": 30,
-        "avg_startup_cost_manwon": 2000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
+    # 음식점 (1~8)
+    {"name": "햄버거", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "치킨", "min_area_m2": 15, "max_area_m2": 35, "avg_startup_cost_manwon": 3500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "피자", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "한식", "min_area_m2": 20, "max_area_m2": 60, "avg_startup_cost_manwon": 5000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "분식", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "중식", "min_area_m2": 20, "max_area_m2": 50, "avg_startup_cost_manwon": 4500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "고기·구이", "min_area_m2": 25, "max_area_m2": 70, "avg_startup_cost_manwon": 6500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "양식", "min_area_m2": 20, "max_area_m2": 60, "avg_startup_cost_manwon": 5500, "inds_code": "", "source": "임시값(시드)"},
+    # 카페 (9~16)
+    {"name": "디저트 카페", "min_area_m2": 20, "max_area_m2": 60, "avg_startup_cost_manwon": 5000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "베이커리", "min_area_m2": 25, "max_area_m2": 70, "avg_startup_cost_manwon": 6000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "프랜차이즈 카페", "min_area_m2": 25, "max_area_m2": 70, "avg_startup_cost_manwon": 6500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "개인 카페", "min_area_m2": 15, "max_area_m2": 45, "avg_startup_cost_manwon": 4500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "브런치 카페", "min_area_m2": 25, "max_area_m2": 65, "avg_startup_cost_manwon": 5500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "애견 카페", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 6000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "테이크아웃 전문", "min_area_m2": 10, "max_area_m2": 25, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "차·티 전문점", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    # 여가시설 (17~24)
+    {"name": "헬스장", "min_area_m2": 60, "max_area_m2": 200, "avg_startup_cost_manwon": 10000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "필라테스", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 6000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "스크린골프", "min_area_m2": 50, "max_area_m2": 120, "avg_startup_cost_manwon": 15000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "PC방", "min_area_m2": 60, "max_area_m2": 200, "avg_startup_cost_manwon": 12000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "당구장", "min_area_m2": 40, "max_area_m2": 100, "avg_startup_cost_manwon": 8000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "볼링장", "min_area_m2": 150, "max_area_m2": 400, "avg_startup_cost_manwon": 30000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "만화카페", "min_area_m2": 40, "max_area_m2": 100, "avg_startup_cost_manwon": 7000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "방탈출카페", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 6500, "inds_code": "", "source": "임시값(시드)"},
+    # 소매 (25~32)
+    {"name": "편의점", "min_area_m2": 20, "max_area_m2": 50, "avg_startup_cost_manwon": 8000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "옷가게", "min_area_m2": 15, "max_area_m2": 45, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "문구점", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "잡화점", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "꽃집", "min_area_m2": 10, "max_area_m2": 25, "avg_startup_cost_manwon": 2500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "화장품가게", "min_area_m2": 15, "max_area_m2": 35, "avg_startup_cost_manwon": 3500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "신발가게", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 3500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "안경점", "min_area_m2": 10, "max_area_m2": 30, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    # 생활서비스 (33~40)
+    {"name": "세탁소", "min_area_m2": 10, "max_area_m2": 30, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "부동산", "min_area_m2": 10, "max_area_m2": 25, "avg_startup_cost_manwon": 2000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "미용실", "min_area_m2": 15, "max_area_m2": 40, "avg_startup_cost_manwon": 4500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "인쇄소", "min_area_m2": 10, "max_area_m2": 30, "avg_startup_cost_manwon": 3000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "네일샵", "min_area_m2": 10, "max_area_m2": 25, "avg_startup_cost_manwon": 2500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "사진관", "min_area_m2": 15, "max_area_m2": 35, "avg_startup_cost_manwon": 3500, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "휴대폰매장", "min_area_m2": 10, "max_area_m2": 30, "avg_startup_cost_manwon": 4000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "열쇠·수선", "min_area_m2": 5, "max_area_m2": 15, "avg_startup_cost_manwon": 1500, "inds_code": "", "source": "임시값(시드)"},
+    # 의료 (41~48)
+    {"name": "약국", "min_area_m2": 20, "max_area_m2": 50, "avg_startup_cost_manwon": 8000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "한의원", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 12000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "치과", "min_area_m2": 40, "max_area_m2": 100, "avg_startup_cost_manwon": 20000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "동물병원", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 15000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "피부과", "min_area_m2": 30, "max_area_m2": 80, "avg_startup_cost_manwon": 18000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "정형외과", "min_area_m2": 40, "max_area_m2": 100, "avg_startup_cost_manwon": 20000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "안과", "min_area_m2": 40, "max_area_m2": 100, "avg_startup_cost_manwon": 20000, "inds_code": "", "source": "임시값(시드)"},
+    {"name": "산부인과", "min_area_m2": 50, "max_area_m2": 120, "avg_startup_cost_manwon": 25000, "inds_code": "", "source": "임시값(시드)"},
 ]
-# 시드 삽입 순서 = industries.id 순서 (1=카페, 2=베이커리, 3=분식, 4=서점문구, 5=반찬, 6=과일).
-# 아래 SEED_VOTES가 이 순서에 의존하므로 순서를 바꾸지 말 것.
+# 시드 삽입 순서 = industries.id 순서 (1~8=음식점, 9~16=카페, 17~24=여가시설,
+# 25~32=소매, 33~40=생활서비스, 41~48=의료). 아래 SEED_VOTES가 이 순서에 의존하므로 순서를 바꾸지 말 것.
 
 # region_code: 양덕동 임시 코드. 실제 행정표준코드 확정 전까지 사용하는 placeholder (7단계에서 확정 예정).
 YANGDEOK_REGION_CODE = "47111-YANGDEOK-TEMP"
@@ -126,13 +136,16 @@ SEED_VACANCIES = [
     },
 ]
 
-# 동네 투표 시드 (v3 신규). industry_id는 위 SEED_INDUSTRIES 삽입 순서를 그대로 참조한다.
+# 동네 투표 시드 (v3 신규). industry_id는 위 SEED_INDUSTRIES 삽입 순서를 그대로 참조한다
+# (1=햄버거, 5=분식, 29=꽃집 - 48종 확장 전엔 각각 카페/분식/과일이었던 자리).
+# id=1에 투표를 남겨두는 건 우연이 아니다 - tests/test_report_route_v3.py가 inds[0](=id 1)에
+# 이미 시드 투표가 있다고 가정하고 그 값으로 리포트 수치를 검증한다.
 # 좌표는 공실 근처에서 조금씩 흩어 놓아 격자(voter_grid)가 최소 2개 이상 나뉘도록 했다.
 SEED_VOTES = [
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-1", "voter_name": "김양덕", "lat": 36.0521, "lng": 129.3612},  # 카페
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-2", "voter_name": "이동네", "lat": 36.0499, "lng": 129.3579},  # 카페, 다른 격자
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 3, "voter_id": "seed-voter-3", "voter_name": "박분식", "lat": 36.0538, "lng": 129.3644},  # 분식
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 6, "voter_id": "seed-voter-4", "voter_name": "최과일", "lat": 36.0510, "lng": 129.3600},  # 과일
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-1", "voter_name": "김양덕", "lat": 36.0521, "lng": 129.3612},  # 햄버거
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-2", "voter_name": "이동네", "lat": 36.0499, "lng": 129.3579},  # 햄버거, 다른 격자
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 5, "voter_id": "seed-voter-3", "voter_name": "박분식", "lat": 36.0538, "lng": 129.3644},  # 분식
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 29, "voter_id": "seed-voter-4", "voter_name": "최과일", "lat": 36.0510, "lng": 129.3600},  # 꽃집
 ]
 
 

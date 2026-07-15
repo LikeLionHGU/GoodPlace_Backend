@@ -22,7 +22,7 @@ with TestClient(main.app) as c:
     print("── I0: 조회 (A 데이터계층) ──")
     check(c.get("/health").json()["status"] == "ok", "/health ok")
     inds = c.get("/industries").json()
-    check(len(inds) == 6 and isinstance(inds[0]["id"], int), "/industries 6종·INTEGER id")
+    check(len(inds) == 48 and isinstance(inds[0]["id"], int), "/industries 48종(6대분류x8세부)·INTEGER id")
     vacs = c.get("/vacancies").json()
     check(len(vacs) == 3 and isinstance(vacs[0]["facilities"], dict), "/vacancies 3곳·중개사필드(facilities dict)")
     cafe_id = inds[0]["id"]
