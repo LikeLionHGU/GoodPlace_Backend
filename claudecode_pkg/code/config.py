@@ -24,3 +24,9 @@ CASH_POLICY = {
 # ── 투표(모의 결제) 고정값 ────────────────────────────────────────────────
 VOTE_AMOUNT_WON = 1000          # 1표 = 1,000원 선결제(서버 고정, 클라이언트가 못 바꿈)
 VOTER_NAME_MAX_LEN = 30         # 표시명 길이 제한
+
+# ── 소상공인 상가(상권)정보 API (7단계 · 담당 A) ─────────────────────────────
+# 서비스 ID B553077. serviceKey 는 코드에 넣지 않는다 → 환경변수 SBIZ_SERVICE_KEY 에만.
+# 지역은 하드코딩 금지 — region_code(행정동 코드)를 인자로 받는다(양덕동은 첫 적용지).
+SBIZ_API_BASE = "http://apis.data.go.kr/B553077/api/open/sdsc2"
+SBIZ_DEFAULT_ROWS = 100         # 페이지당 건수(대량은 페이징 — 명세서 참조)

@@ -303,3 +303,27 @@ def refund_campaign_votes(conn, campaign):
     conn.commit()
     return {"campaign_id": campaign["id"], "refunded_count": len(rows),
             "cash_won": sum(v["amount_won"] for v in rows)}
+
+
+# ── 7단계: 실데이터 공실 적재(담당 A) ─────────────────────────────────────
+def insert_vacancy(conn, row: dict):
+    """실데이터 공실 1건 적재(is_seed=0). competitors dict → JSON 문자열.
+
+    면적(area_m2)이 없으면 빠른 실패 — 소상공인 API 엔 면적이 없으므로 건축물대장/실측으로
+    채운 값만 적재한다(가짜 면적 금지). 같은 id 는 REPLACE(재수집 멱등).
+    """
+    if row.get("area_m2") is None:
+        raise ValueError(f"area_m2 없음(건축물대장/실측 필요) — 적재 거부: {row.get('id')}")
+    if row.get("lat") is None or row.get("lng") is None:
+        raise ValueError(f"좌표 없음 — 적재 거부: {row.get('id')}")
+    payload = {**row, "competitors": json.dumps(row.get("competitors") or {}, ensure_ascii=False)}
+    conn.execute(
+        """INSERT OR REPLACE INTO vacancies
+           (id, name, address, region_code, lat, lng, area_m2, floor, vacant_since,
+            prev_industry, competitors, evidence, is_seed)
+           VALUES (:id, :name, :address, :region_code, :lat, :lng, :area_m2, :floor,
+                   :vacant_since, :prev_industry, :competitors, :evidence, :is_seed)""",
+        payload,
+    )
+    conn.commit()
+    return row["id"]
