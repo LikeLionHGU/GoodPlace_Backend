@@ -16,12 +16,14 @@ from schemas import Industry, Vacancy
 import routes_vote
 import routes_cash
 import routes_region
+import routes_report
 import ingest_api
 
 app = FastAPI(title="명당 백엔드 - 담당 A")
 app.include_router(routes_vote.router)
 app.include_router(routes_cash.router)
 app.include_router(routes_region.router)
+app.include_router(routes_report.router)
 app.include_router(ingest_api.router)
 
 

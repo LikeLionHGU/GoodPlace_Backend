@@ -26,25 +26,32 @@ SYSTEM_PROMPT = (
 )
 
 
-def facts_from_report(report: dict) -> dict:
-    """리포트에서 해설 입력으로 쓸 확정 수치만 추린다(순수). 새 값을 만들지 않는다."""
-    c = report["conclusion"]
-    wc = report["waiting_customers"]
-    comp = report["competition"]
-    demand = report["reasoning"]["factors"]["수요"]
+def facts_from_report(report: dict, card: dict) -> dict:
+    """
+    리포트 + 카드 하나(공실 탭)에서 해설 입력으로 쓸 확정 수치만 추린다(순수). 새 값을 만들지 않는다.
+
+    v3 전환: 리포트가 "업종 하나 → 추천 공실 1·2·3위" 구조(report.py I2)라 해설은
+    공실 탭마다 따로 만든다(08번 §4.5 "공실 탭마다 1회"). 그래서 report 전체가 아니라
+    report["vacancies"] 의 카드 하나를 함께 받는다.
+    """
+    ad = card["action_range_demand"]
+    comp = card["competition"]
+    wc = card["waiting_customers"]
     return {
-        "공실": report["vacancy"]["name"],
-        "추천업종": c["recommended_industry"],
-        "적합도_percent": c["adequacy_pct"],
-        "포화플래그": c["saturation_flag"],
+        "동네": report["region_code"],
+        "업종": report["industry"]["name"],
+        "공실": card["vacancy"]["name"],
+        "순위": card["rank"],
+        "적합도_percent": card["adequacy_pct"],
+        "포화플래그": comp["saturation_flag"],
+        "동네전체수요_명": report["region_total_demand"]["count"],
+        "이자리반경_명": ad["raw_voters"],
         "대기고객_명": wc["count"],
         "쿠폰단가_원": wc["coupon_value_won"],
-        "쿠폰총액_원": wc["count"] * wc["coupon_value_won"],
-        "직접투표_명": demand["direct_votes"],
+        "쿠폰총액_원": wc["coupon_total_won"],
         "경쟁_동일업종_개수": comp["count"]["value"],
         "동네평균_개수": comp["neighborhood_avg"]["value"],
         "동네평균대비_배수": comp["competition_ratio"],
-        "반경_m": comp["radius_m"],
     }
 
 
@@ -93,8 +100,8 @@ def build_messages(facts: dict) -> list:
             {"role": "user", "content": user}]
 
 
-def generate_explanation(report: dict, *, max_retries: int = 2, timeout: float = 20.0):
-    """리포트 → AI 해설 {value, source} 또는 None.
+def generate_explanation(report: dict, card: dict, *, max_retries: int = 2, timeout: float = 20.0):
+    """리포트 + 공실 카드 하나 → AI 해설 {value, source} 또는 None.
 
     None 인 경우(전부 '조용한 실패' 아니라 '해설 없이 수치 리포트만'):
       - 키(OPENAI_API_KEY) 없음 / httpx 없음 / 호출 실패 / 재시도 후에도 검증 실패.
@@ -108,7 +115,7 @@ def generate_explanation(report: dict, *, max_retries: int = 2, timeout: float =
     except ImportError:
         return None
 
-    facts = facts_from_report(report)
+    facts = facts_from_report(report, card)
     allowed = allowed_numbers(facts)
     messages = build_messages(facts)
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")

@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS cash_ledger (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     voter_id TEXT NOT NULL,
     delta_won INTEGER NOT NULL,      -- +적립/-사용. 화면 표기는 '냥'(10원=1냥), 저장은 원 그대로 (won_to_nyang/nyang_to_won 참고)
-    reason TEXT NOT NULL,            -- refund/vote/coupon 만 허용 (현금 인출 없음 — 규제 방어)
+    reason TEXT NOT NULL,            -- refund/vote/coupon/report 만 허용 (현금 인출 없음 — 규제 방어)
+                                      -- report = 리포트 생성 비용(50냥, I3에서 추가)
     ref_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
