@@ -1,6 +1,11 @@
 # Python
 __pycache__/
 *.pyc
+.venv/
+venv/
+
+# 환경변수(키) — 절대 커밋 금지
+.env
 
 # SQLite 런타임 DB (앱이 seed_dummy 로 자동 생성 — main.py lifespan)
 *.db
