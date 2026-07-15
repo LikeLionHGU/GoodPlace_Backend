@@ -9,57 +9,34 @@ from database import get_connection
 from routes_vote import snap_to_grid
 
 # 임시값: 실제 통계로 교체 예정. inds_code(247분류)는 매핑표 작업 전이라 빈 값으로 둔다.
+# 프런트 CATEGORY_TAXONOMY(6대분류 × 8세부 = 48종)와 이름이 정확히 일치해야 한다
+# (프런트가 업종명→id 조회로 투표하므로). 이름 변경 시 프런트 vacancies.js와 함께 고칠 것.
+def _ind(name, mn, mx, cost):
+    return {"name": name, "min_area_m2": mn, "max_area_m2": mx,
+            "avg_startup_cost_manwon": cost, "inds_code": "", "source": "임시값(시드)"}
+
+
 SEED_INDUSTRIES = [
-    {
-        "name": "카페",
-        "min_area_m2": 20,
-        "max_area_m2": 60,
-        "avg_startup_cost_manwon": 5000,
-        "inds_code": "",  # TODO: 247분류 매핑 필요 (소상공인_상가정보_API_명세서 §6 참고)
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "베이커리",
-        "min_area_m2": 25,
-        "max_area_m2": 70,
-        "avg_startup_cost_manwon": 6000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "분식",
-        "min_area_m2": 15,
-        "max_area_m2": 40,
-        "avg_startup_cost_manwon": 3000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "서점문구",
-        "min_area_m2": 20,
-        "max_area_m2": 50,
-        "avg_startup_cost_manwon": 4000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "반찬",
-        "min_area_m2": 10,
-        "max_area_m2": 30,
-        "avg_startup_cost_manwon": 2500,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
-    {
-        "name": "과일",
-        "min_area_m2": 10,
-        "max_area_m2": 30,
-        "avg_startup_cost_manwon": 2000,
-        "inds_code": "",
-        "source": "임시값(시드)",
-    },
+    # 음식점 (1~8)
+    _ind("햄버거", 20, 50, 4000), _ind("치킨", 20, 50, 4500), _ind("피자", 25, 60, 5000), _ind("한식", 30, 80, 5000),
+    _ind("분식", 15, 40, 3000), _ind("중식", 30, 70, 5000), _ind("고기·구이", 40, 100, 7000), _ind("양식", 30, 70, 6000),
+    # 카페 (9~16)
+    _ind("디저트 카페", 20, 50, 4500), _ind("베이커리", 25, 70, 6000), _ind("프랜차이즈 카페", 25, 60, 8000), _ind("개인 카페", 20, 50, 4000),
+    _ind("브런치 카페", 30, 70, 5500), _ind("애견 카페", 40, 90, 6000), _ind("테이크아웃 전문", 10, 25, 2500), _ind("차·티 전문점", 20, 50, 4000),
+    # 여가시설 (17~24)
+    _ind("헬스장", 100, 300, 10000), _ind("필라테스", 60, 150, 7000), _ind("스크린골프", 100, 250, 12000), _ind("PC방", 100, 250, 10000),
+    _ind("당구장", 80, 200, 7000), _ind("볼링장", 200, 500, 20000), _ind("만화카페", 60, 150, 5000), _ind("방탈출카페", 60, 150, 6000),
+    # 소매 (25~32)
+    _ind("편의점", 20, 50, 6000), _ind("옷가게", 20, 60, 4000), _ind("문구점", 20, 50, 3000), _ind("잡화점", 20, 50, 3000),
+    _ind("꽃집", 15, 40, 3000), _ind("화장품가게", 20, 50, 5000), _ind("신발가게", 20, 60, 4000), _ind("안경점", 20, 50, 5000),
+    # 생활서비스 (33~40)
+    _ind("세탁소", 15, 40, 3000), _ind("부동산", 15, 40, 2500), _ind("미용실", 25, 70, 5000), _ind("인쇄소", 20, 50, 3500),
+    _ind("네일샵", 15, 40, 3000), _ind("사진관", 25, 60, 4000), _ind("휴대폰매장", 20, 50, 4000), _ind("열쇠·수선", 5, 20, 1500),
+    # 의료 (41~48)
+    _ind("약국", 20, 50, 5000), _ind("한의원", 60, 150, 8000), _ind("치과", 60, 150, 10000), _ind("동물병원", 60, 150, 8000),
+    _ind("피부과", 60, 150, 10000), _ind("정형외과", 100, 250, 15000), _ind("안과", 60, 150, 10000), _ind("산부인과", 100, 250, 15000),
 ]
-# 시드 삽입 순서 = industries.id 순서 (1=카페, 2=베이커리, 3=분식, 4=서점문구, 5=반찬, 6=과일).
+# 시드 삽입 순서 = industries.id 순서 (1=햄버거 … 9=디저트 카페 … 25=편의점 … 48=산부인과).
 # 아래 SEED_VOTES가 이 순서에 의존하므로 순서를 바꾸지 말 것.
 
 # region_code: 양덕동 임시 코드. 실제 행정표준코드 확정 전까지 사용하는 placeholder (7단계에서 확정 예정).
@@ -129,10 +106,10 @@ SEED_VACANCIES = [
 # 동네 투표 시드 (v3 신규). industry_id는 위 SEED_INDUSTRIES 삽입 순서를 그대로 참조한다.
 # 좌표는 공실 근처에서 조금씩 흩어 놓아 격자(voter_grid)가 최소 2개 이상 나뉘도록 했다.
 SEED_VOTES = [
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-1", "voter_name": "김양덕", "lat": 36.0521, "lng": 129.3612},  # 카페
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 1, "voter_id": "seed-voter-2", "voter_name": "이동네", "lat": 36.0499, "lng": 129.3579},  # 카페, 다른 격자
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 3, "voter_id": "seed-voter-3", "voter_name": "박분식", "lat": 36.0538, "lng": 129.3644},  # 분식
-    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 6, "voter_id": "seed-voter-4", "voter_name": "최과일", "lat": 36.0510, "lng": 129.3600},  # 과일
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 9, "voter_id": "seed-voter-1", "voter_name": "김양덕", "lat": 36.0521, "lng": 129.3612},  # 디저트 카페
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 9, "voter_id": "seed-voter-2", "voter_name": "이동네", "lat": 36.0499, "lng": 129.3579},  # 디저트 카페, 다른 격자
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 4, "voter_id": "seed-voter-3", "voter_name": "박한식", "lat": 36.0538, "lng": 129.3644},  # 한식
+    {"region_code": YANGDEOK_REGION_CODE, "industry_id": 25, "voter_id": "seed-voter-4", "voter_name": "최편의", "lat": 36.0510, "lng": 129.3600},  # 편의점
 ]
 
 
