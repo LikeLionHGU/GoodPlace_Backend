@@ -239,24 +239,67 @@ def votes_summary(conn, region_code=None):
 
 
 # ── 2단계: 캐시 원장(모의) — 뼈대만. 정책(교환비율·유효기간·재투표)은 config 에서 미확정 ──
-def cash_add(conn, voter_id, delta_won, reason, ref_id=None):
+def cash_add(conn, voter_id, delta_won, reason, ref_id=None, commit=True):
     """캐시 원장에 적립(+)/사용(-) 1건 기록. reason ∈ refund/vote/coupon(계약 CHECK).
 
     원장은 '원(delta_won)' 단위로 저장(A 스키마 계약). 표시 단위 '냥'·교환비율(1냥=10원)·
     유효기간(만료 없음)은 config.CASH_POLICY 확정(2026-07-15).
+    commit=False 면 커밋을 미룬다(6단계 배치 환불에서 여러 건을 한 트랜잭션으로 묶기 위함).
     """
     cur = conn.execute(
         "INSERT INTO cash_ledger (voter_id, delta_won, reason, ref_id) VALUES (?, ?, ?, ?)",
         (voter_id, int(delta_won), reason, ref_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur.lastrowid
 
 
 def cash_balance(conn, voter_id):
-    """사용자 잔액 = delta_won 합계(적립 - 사용). 만료 미반영(유효기간 미확정)."""
+    """사용자 잔액 = delta_won 합계(적립 - 사용). 만료 미반영(유효기간=없음, 확정)."""
     row = conn.execute(
         "SELECT COALESCE(SUM(delta_won), 0) AS bal FROM cash_ledger WHERE voter_id=?",
         (voter_id,),
     ).fetchone()
     return row["bal"]
+
+
+# ── 6단계: 캠페인 조회 · 환불 실행(모의) ──────────────────────────────────
+def get_campaign(conn, campaign_id):
+    row = conn.execute("SELECT * FROM campaign WHERE id=?", (campaign_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def list_campaigns(conn, region_code=None):
+    sql, params = "SELECT * FROM campaign", ()
+    if region_code is not None:
+        sql, params = sql + " WHERE region_code=?", (region_code,)
+    return [dict(r) for r in conn.execute(sql + " ORDER BY id", params)]
+
+
+def held_votes_in_region(conn, region_code):
+    """그 지역(캠페인) 소속 held 투표 행. votes 는 vacancy 의 region_code 로 캠페인에 묶인다."""
+    return [dict(r) for r in conn.execute(
+        """SELECT vt.id, vt.voter_id, vt.amount_won, vt.payment_status
+           FROM votes vt JOIN vacancies vac ON vac.id = vt.vacancy_id
+           WHERE vac.region_code = ? AND vt.payment_status = 'held'""",
+        (region_code,),
+    )]
+
+
+def refund_campaign_votes(conn, campaign):
+    """실패 처리: 캠페인 region 의 held 투표 전건을 refunded 로 전이 + 캐시 적립 + campaign→failed.
+
+    기한 경과·미성사 판단(campaign.resolve_campaign)은 **호출 전에** 끝냈다고 전제한다(여기선 실행만).
+    환불액 = 각 투표 amount_won(1,000원) → cash_ledger 에 +원 기록(reason=refund, ref_id=vote id).
+    한 트랜잭션(cash_add commit=False)으로 묶고 마지막에 한 번 커밋. 이미 failed 면 멱등(0건).
+    """
+    rows = held_votes_in_region(conn, campaign["region_code"])
+    for v in rows:
+        conn.execute("UPDATE votes SET payment_status='refunded' WHERE id=?", (v["id"],))
+        cash_add(conn, v["voter_id"], v["amount_won"], "refund",
+                 ref_id=str(v["id"]), commit=False)
+    conn.execute("UPDATE campaign SET status='failed' WHERE id=?", (campaign["id"],))
+    conn.commit()
+    return {"campaign_id": campaign["id"], "refunded_count": len(rows),
+            "cash_won": sum(v["amount_won"] for v in rows)}

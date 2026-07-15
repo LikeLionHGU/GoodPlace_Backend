@@ -13,6 +13,7 @@ from routes_query import router
 from routes_vote import router as vote_router
 from routes_allocation import router as allocation_router
 from routes_report import router as report_router
+from routes_campaign import router as campaign_router
 
 
 @asynccontextmanager
@@ -38,3 +39,4 @@ app.include_router(router)
 app.include_router(vote_router)
 app.include_router(allocation_router)
 app.include_router(report_router)
+app.include_router(campaign_router)
