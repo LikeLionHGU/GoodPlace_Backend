@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>명당 · AI 창업 기회 리포트 (1·2·3위 탭)</title>
+<style>
+  :root {
+    --green-deep: #2f5d50; --green-mid: #4a7c6a; --green-pale: #eaf2ee; --green-line: #d3e3db;
+    --gold: #b8893d; --gold-pale: #f7efe0;
+    --ink: #1f2723; --ink-soft: #5b6560; --ink-faint: #929b96;
+    --paper: #fff; --shell: #eef1ef;
+    --warn: #b45309; --warn-pale: #fdf3e3;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;
+         background:var(--shell); color:var(--ink); line-height:1.6; padding:24px 12px;
+         -webkit-font-smoothing:antialiased; }
+  .sheet { max-width:480px; margin:0 auto; background:var(--paper); border-radius:18px;
+           overflow:hidden; box-shadow:0 8px 40px rgba(31,39,35,.10); }
+
+  .head { background:linear-gradient(150deg,var(--green-deep),var(--green-mid)); color:#fff; padding:24px 26px 18px; }
+  .head .eyebrow { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#b6cfc4; font-weight:600; margin-bottom:6px; }
+  .head h1 { font-size:25px; font-weight:800; letter-spacing:-.02em; }
+  .head .addr { font-size:13px; color:#c8dbd2; margin-top:4px; }
+
+  /* ── 탭 바 ── */
+  .tabs { display:flex; background:var(--green-deep); padding:0 14px; gap:6px; }
+  .tab { flex:1; background:rgba(255,255,255,.10); color:#cfe0d8; border:none; cursor:pointer;
+         font-family:inherit; font-size:13.5px; font-weight:700; padding:11px 4px 10px;
+         border-radius:12px 12px 0 0; transition:background .15s,color .15s; position:relative; }
+  .tab .rank { display:block; font-size:11px; font-weight:600; opacity:.85; }
+  .tab.active { background:var(--paper); color:var(--green-deep); }
+  .tab:not(.active):hover { background:rgba(255,255,255,.18); }
+
+  section { padding:20px 26px; border-top:1px solid var(--green-line); }
+  section:first-of-type { border-top:none; }
+  .label { font-size:11.5px; letter-spacing:.12em; color:var(--ink-faint); font-weight:700;
+           text-transform:uppercase; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .label::after { content:""; flex:1; height:1px; background:var(--green-line); }
+
+  .verdict { background:var(--green-pale); border:1.5px solid var(--green-line); border-radius:14px; padding:18px 20px; }
+  .verdict-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+  .pill { color:#fff; font-size:12px; font-weight:700; padding:4px 12px; border-radius:20px; background:var(--green-deep); }
+  .pill.alt { background:var(--ink-faint); }
+  .fit { font-size:13px; color:var(--green-mid); font-weight:700; }
+  .fit b { font-size:20px; }
+  .verdict h2 { font-size:28px; font-weight:800; letter-spacing:-.02em; margin-bottom:6px; }
+  .verdict p { font-size:14px; color:var(--ink-soft); }
+  .verdict p b { color:var(--ink); }
+  .warnline { margin-top:10px; background:var(--warn-pale); color:var(--warn); border-radius:9px;
+              padding:8px 12px; font-size:12.5px; font-weight:700; }
+  .altnote { margin-top:10px; font-size:12px; color:var(--ink-faint); }
+
+  .hero { display:grid; grid-template-columns:1.15fr .85fr; gap:12px; margin-top:16px; }
+  .hero-main { background:var(--gold-pale); border:1px solid #ecdcbe; border-radius:14px; padding:16px 18px; }
+  .hero-main .cap { font-size:12px; color:var(--gold); font-weight:700; }
+  .hero-main .big { font-size:40px; font-weight:800; color:var(--gold); line-height:1.05; margin:2px 0; }
+  .hero-main .big span { font-size:17px; }
+  .hero-main .sub { font-size:12px; color:#96773a; }
+  .hero-alt { background:#f6f8f7; border:1px solid var(--green-line); border-radius:14px; padding:14px 16px;
+              display:flex; flex-direction:column; justify-content:center; }
+  .hero-alt .cap { font-size:11.5px; color:var(--ink-faint); font-weight:700; margin-bottom:6px; }
+  .hero-alt .row { display:flex; justify-content:space-between; font-size:13px; margin:2px 0; }
+  .hero-alt .row b { color:var(--ink-soft); font-weight:600; }
+  .hero-alt .row span { color:var(--ink-faint); }
+
+  .rz-row { display:flex; justify-content:space-between; align-items:baseline; padding:10px 0;
+            border-bottom:1px dashed var(--green-line); }
+  .rz-row:last-child { border-bottom:none; }
+  .rz-left { font-size:13.5px; color:var(--ink-soft); }
+  .rz-left b { color:var(--ink); font-weight:700; }
+  .rz-w { font-size:11px; color:var(--ink-faint); margin-left:2px; }
+  .rz-right { font-size:13.5px; font-weight:700; color:var(--green-deep); text-align:right; }
+  .reason-sub { font-size:12px; color:var(--ink-faint); margin-bottom:10px; }
+  .disclaimer { margin-top:14px; font-size:12.5px; color:var(--ink-soft); background:#f6f8f7;
+                border-radius:10px; padding:11px 13px; line-height:1.55; }
+
+  .comp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .comp-cell { text-align:center; background:#f6f8f7; border:1px solid var(--green-line);
+               border-radius:12px; padding:14px 6px; }
+  .comp-cell.zero { background:var(--green-pale); border-color:var(--green-mid); }
+  .comp-num { font-size:26px; font-weight:800; }
+  .comp-cell.zero .comp-num { color:var(--green-deep); }
+  .comp-name { font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .comp-base { font-size:11px; color:var(--ink-faint); }
+  .comp-note { font-size:12px; color:var(--ink-faint); margin-top:10px; }
+
+  .kv { display:grid; grid-template-columns:1fr 1fr; gap:0 22px; }
+  .kv .item { padding:9px 0; border-bottom:1px solid #eef1ef; display:flex; justify-content:space-between; align-items:baseline; }
+  .kv .k { font-size:12.5px; color:var(--ink-faint); }
+  .kv .v { font-size:13px; font-weight:600; text-align:right; }
+  .tag { font-size:10px; font-weight:700; padding:1.5px 7px; border-radius:6px; margin-left:5px; }
+  .tag.real { background:#e3efe8; color:#2f5d50; }
+  .tag.ex { background:#f2ede2; color:#97772f; }
+  .cost-note { font-size:11.5px; color:var(--ink-faint); margin-top:9px; line-height:1.5; }
+
+  .cta { padding:20px 26px 26px; }
+  .cta button { width:100%; background:var(--green-deep); color:#fff; border:none; padding:16px;
+                border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .cta button:hover { background:#264a40; }
+  .cta .fine { text-align:center; font-size:11.5px; color:var(--ink-faint); margin-top:10px; }
+
+  .panel { display:none; }
+  .panel.active { display:block; }
+  @media (max-width:400px){ .hero{grid-template-columns:1fr;} .kv{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <div class="eyebrow">AI 창업 기회 리포트</div>
+    <h1>양덕동 A공실</h1>
+    <div class="addr">경상북도 포항시 북구 양덕로 (예시 주소) · 33㎡ · 1층</div>
+  </div>
+
+  <!-- 탭 바: 후보 1·2·3위 -->
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="0" role="tab">세탁소<span class="rank">1위 · 배치 확정</span></button>
+    <button class="tab" data-tab="1" role="tab">반찬가게<span class="rank">2위 · 참고 후보</span></button>
+    <button class="tab" data-tab="2" role="tab">약국<span class="rank">3위 · 참고 후보</span></button>
+  </div>
+
+  <!-- ════════ 패널 1위: 세탁소 ════════ -->
+  <div class="panel active" id="panel-0">
+    <section>
+      <div class="verdict">
+        <div class="verdict-top">
+          <span class="pill">1순위 · AI 배치 확정</span>
+          <span class="fit">적합도 <b>56</b>%</span>
+        </div>
+        <h2>세탁소</h2>
+        <p>주민 <b>32명</b>이 선결제로 원했고, 반경 500m 안에 세탁소가 <b>0개</b>입니다.</p>
+      </div>
+      <div class="hero">
+        <div class="hero-main">
+          <div class="cap">선결제 대기 고객</div>
+          <div class="big">32<span>명</span></div>
+          <div class="sub">개업 시 사용 확정 쿠폰 <b>96,000원</b>어치</div>
+          <div class="sub" style="margin-top:4px;opacity:.8;">※ 개업 시 방문 의사의 증명이며, 반복 구매를 보장하지 않습니다</div>
+        </div>
+        <div class="hero-alt">
+          <div class="cap">다른 후보 (탭에서 확인)</div>
+          <div class="row"><b>반찬가게</b><span>39%</span></div>
+          <div class="row"><b>약국</b><span>27%</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="label">AI가 이렇게 판단했어요</div>
+      <div class="reason-sub">적합도 = 수요 × 면적적합 × 경쟁보정 점수를 0~100 지수로 변환 (100% 미도달 설계)</div>
+      <div class="rz-row"><span class="rz-left"><b>수요</b><span class="rz-w"> · 직접표+인근 가중</span></span><span class="rz-right">직접 32 + 인근 6.4 = 38.4</span></div>
+      <div class="rz-row"><span class="rz-left"><b>면적 적합</b><span class="rz-w"> · 업종 요구 범위 대비</span></span><span class="rz-right">33㎡ 적정 (1.0)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>경쟁 보정</b><span class="rz-w"> · 동네 평균 대비</span></span><span class="rz-right">0곳 / 평균 2.1 → 기회 (1.0)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>참고 정보</b><span class="rz-w"> · 점수 미반영</span></span><span class="rz-right">1층 · 직전 의류점</span></div>
+      <div class="disclaimer">AI는 성공을 보장하지 않습니다. 검증된 <b>수요와 개업일 첫 손님까지</b>가 명당의 책임이며, 이후 운영과 품질은 창업자의 몫입니다.</div>
+    </section>
+
+    <section>
+      <div class="label">주변 경쟁 · 반경 500m</div>
+      <div class="comp-grid">
+        <div class="comp-cell zero"><div class="comp-num">0</div><div class="comp-name">세탁소</div><div class="comp-base">동네 평균 2.1</div></div>
+        <div class="comp-cell"><div class="comp-num">12</div><div class="comp-name">카페</div><div class="comp-base">동네 평균 8.4</div></div>
+        <div class="comp-cell"><div class="comp-num">5</div><div class="comp-name">편의점</div><div class="comp-base">동네 평균 4.7</div></div>
+      </div>
+      <div class="comp-note">세탁소 0곳 · 동네 평균 2.1곳(평균의 0배) → 기회. · 소상공인 상가정보 API 집계</div>
+    </section>
+
+    <section>
+      <div class="label">창업 실무 참고</div>
+      <div class="kv">
+        <div class="item"><span class="k">예상 초기비용</span><span class="v">약 4,500만원<span class="tag ex">업종평균</span></span></div>
+        <div class="item"><span class="k">필요 인허가</span><span class="v">세탁업 신고<span class="tag real">확인</span></span></div>
+      </div>
+      <div class="cost-note">초기비용은 소상공인시장진흥공단 업종 평균 기준입니다. 실제 비용은 점포 상태·권리금·인테리어 수준에 따라 크게 달라지므로 참고값으로만 보세요.</div>
+    </section>
+  </div>
+
+  <!-- ════════ 패널 2위: 반찬가게 ════════ -->
+  <div class="panel" id="panel-1">
+    <section>
+      <div class="verdict">
+        <div class="verdict-top">
+          <span class="pill alt">2순위 · 참고 후보</span>
+          <span class="fit">적합도 <b>39</b>%</span>
+        </div>
+        <h2>반찬가게</h2>
+        <p>주민 <b>21명</b>이 선결제로 원했고, 반경 500m 안에 반찬가게가 <b>1개</b>입니다.</p>
+        <div class="warnline">⚠ 경쟁 주의 — 동네 평균(0.8곳)의 1.25배</div>
+        <div class="altnote">지도 배치는 1위(세탁소) 기준입니다. 2순위는 창업자가 대안을 검토할 수 있게 제공하는 참고 후보입니다.</div>
+      </div>
+      <div class="hero">
+        <div class="hero-main">
+          <div class="cap">선결제 대기 고객</div>
+          <div class="big">21<span>명</span></div>
+          <div class="sub">개업 시 사용 확정 쿠폰 <b>63,000원</b>어치</div>
+          <div class="sub" style="margin-top:4px;opacity:.8;">※ 개업 시 방문 의사의 증명이며, 반복 구매를 보장하지 않습니다</div>
+        </div>
+        <div class="hero-alt">
+          <div class="cap">다른 후보 (탭에서 확인)</div>
+          <div class="row"><b>세탁소</b><span>56%</span></div>
+          <div class="row"><b>약국</b><span>27%</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="label">AI가 이렇게 판단했어요</div>
+      <div class="reason-sub">적합도 = 수요 × 면적적합 × 경쟁보정 점수를 0~100 지수로 변환 (100% 미도달 설계)</div>
+      <div class="rz-row"><span class="rz-left"><b>수요</b><span class="rz-w"> · 직접표+인근 가중</span></span><span class="rz-right">직접 21 + 인근 3.2 = 24.2</span></div>
+      <div class="rz-row"><span class="rz-left"><b>면적 적합</b><span class="rz-w"> · 업종 요구 범위 대비</span></span><span class="rz-right">33㎡ 적정 (1.0)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>경쟁 보정</b><span class="rz-w"> · 동네 평균 대비</span></span><span class="rz-right">1곳 / 평균 0.8 → 주의 (0.8)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>참고 정보</b><span class="rz-w"> · 점수 미반영</span></span><span class="rz-right">1층 · 직전 의류점</span></div>
+      <div class="disclaimer">AI는 성공을 보장하지 않습니다. 검증된 <b>수요와 개업일 첫 손님까지</b>가 명당의 책임이며, 이후 운영과 품질은 창업자의 몫입니다.</div>
+    </section>
+
+    <section>
+      <div class="label">주변 경쟁 · 반경 500m</div>
+      <div class="comp-grid">
+        <div class="comp-cell"><div class="comp-num">1</div><div class="comp-name">반찬가게</div><div class="comp-base">동네 평균 0.8</div></div>
+        <div class="comp-cell"><div class="comp-num">12</div><div class="comp-name">카페</div><div class="comp-base">동네 평균 8.4</div></div>
+        <div class="comp-cell"><div class="comp-num">5</div><div class="comp-name">편의점</div><div class="comp-base">동네 평균 4.7</div></div>
+      </div>
+      <div class="comp-note">반찬가게 1곳 · 동네 평균 0.8곳(평균의 1.25배) → 주의. · 소상공인 상가정보 API 집계</div>
+    </section>
+
+    <section>
+      <div class="label">창업 실무 참고</div>
+      <div class="kv">
+        <div class="item"><span class="k">예상 초기비용</span><span class="v">약 4,000만원<span class="tag ex">업종평균</span></span></div>
+        <div class="item"><span class="k">필요 인허가</span><span class="v">즉석판매제조가공업 신고<span class="tag real">확인</span></span></div>
+      </div>
+      <div class="cost-note">초기비용은 소상공인시장진흥공단 업종 평균 기준입니다. 실제 비용은 점포 상태·권리금·인테리어 수준에 따라 크게 달라지므로 참고값으로만 보세요.</div>
+    </section>
+  </div>
+
+  <!-- ════════ 패널 3위: 약국 ════════ -->
+  <div class="panel" id="panel-2">
+    <section>
+      <div class="verdict">
+        <div class="verdict-top">
+          <span class="pill alt">3순위 · 참고 후보</span>
+          <span class="fit">적합도 <b>27</b>%</span>
+        </div>
+        <h2>약국</h2>
+        <p>주민 <b>15명</b>이 선결제로 원했고, 반경 500m 안에 약국이 <b>2개</b>입니다.</p>
+        <div class="warnline">⚠ 경쟁 주의 — 동네 평균(1.4곳)의 1.43배</div>
+        <div class="altnote">지도 배치는 1위(세탁소) 기준입니다. 3순위는 창업자가 대안을 검토할 수 있게 제공하는 참고 후보입니다.</div>
+      </div>
+      <div class="hero">
+        <div class="hero-main">
+          <div class="cap">선결제 대기 고객</div>
+          <div class="big">15<span>명</span></div>
+          <div class="sub">개업 시 사용 확정 쿠폰 <b>45,000원</b>어치</div>
+          <div class="sub" style="margin-top:4px;opacity:.8;">※ 개업 시 방문 의사의 증명이며, 반복 구매를 보장하지 않습니다</div>
+        </div>
+        <div class="hero-alt">
+          <div class="cap">다른 후보 (탭에서 확인)</div>
+          <div class="row"><b>세탁소</b><span>56%</span></div>
+          <div class="row"><b>반찬가게</b><span>39%</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="label">AI가 이렇게 판단했어요</div>
+      <div class="reason-sub">적합도 = 수요 × 면적적합 × 경쟁보정 점수를 0~100 지수로 변환 (100% 미도달 설계)</div>
+      <div class="rz-row"><span class="rz-left"><b>수요</b><span class="rz-w"> · 직접표+인근 가중</span></span><span class="rz-right">직접 15 + 인근 1.6 = 16.6</span></div>
+      <div class="rz-row"><span class="rz-left"><b>면적 적합</b><span class="rz-w"> · 업종 요구 범위 대비</span></span><span class="rz-right">33㎡ 적정 (1.0)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>경쟁 보정</b><span class="rz-w"> · 동네 평균 대비</span></span><span class="rz-right">2곳 / 평균 1.4 → 주의 (0.7)</span></div>
+      <div class="rz-row"><span class="rz-left"><b>참고 정보</b><span class="rz-w"> · 점수 미반영</span></span><span class="rz-right">1층 · 직전 의류점</span></div>
+      <div class="disclaimer">AI는 성공을 보장하지 않습니다. 검증된 <b>수요와 개업일 첫 손님까지</b>가 명당의 책임이며, 이후 운영과 품질은 창업자의 몫입니다.</div>
+    </section>
+
+    <section>
+      <div class="label">주변 경쟁 · 반경 500m</div>
+      <div class="comp-grid">
+        <div class="comp-cell"><div class="comp-num">2</div><div class="comp-name">약국</div><div class="comp-base">동네 평균 1.4</div></div>
+        <div class="comp-cell"><div class="comp-num">12</div><div class="comp-name">카페</div><div class="comp-base">동네 평균 8.4</div></div>
+        <div class="comp-cell"><div class="comp-num">5</div><div class="comp-name">편의점</div><div class="comp-base">동네 평균 4.7</div></div>
+      </div>
+      <div class="comp-note">약국 2곳 · 동네 평균 1.4곳(평균의 1.43배) → 주의. · 소상공인 상가정보 API 집계</div>
+    </section>
+
+    <section>
+      <div class="label">창업 실무 참고</div>
+      <div class="kv">
+        <div class="item"><span class="k">예상 초기비용</span><span class="v">약 1억 5,000만원<span class="tag ex">업종평균</span></span></div>
+        <div class="item"><span class="k">필요 인허가</span><span class="v">약국 개설 등록<span class="tag real">확인</span></span></div>
+      </div>
+      <div class="cost-note">초기비용은 소상공인시장진흥공단 업종 평균 기준입니다. 실제 비용은 점포 상태·권리금·인테리어 수준에 따라 크게 달라지므로 참고값으로만 보세요.</div>
+    </section>
+  </div>
+
+  <!-- 공통: 이 리포트가 답하지 않는 것 -->
+  <section>
+    <div class="label">이 리포트가 답하지 않는 것 · 창업 전 직접 확인</div>
+    <div class="rz-row"><span class="rz-left">☐ <b>권리금·실제 임대 조건</b><span class="rz-w"> — 협상 사안, 공개 데이터 없음</span></span></div>
+    <div class="rz-row"><span class="rz-left">☐ <b>시간대별 현장 관찰</b><span class="rz-w"> — 아침·저녁·주말 직접 방문</span></span></div>
+    <div class="rz-row"><span class="rz-left">☐ <b>운영 역량·원가 계산</b><span class="rz-w"> — 본인 기준 손익 판단</span></span></div>
+    <div class="cost-note">명당의 책임은 검증된 수요와 개업일 첫 손님까지입니다. 위 항목은 창업자의 판단 영역이라 정직하게 비워둡니다.</div>
+  </section>
+
+  <!-- 공통 CTA -->
+  <div class="cta">
+    <button>이 자리 중개사에게 연결하기</button>
+    <div class="fine">계약은 지역 공인중개사가 진행합니다. 명당은 검증된 수요와 첫 손님을 전달합니다.</div>
+  </div>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }));
+</script>
+</body>
+</html>

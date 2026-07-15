@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>명당 · AI 창업 기회 리포트</title>
+<style>
+  :root {
+    --green-deep: #2f5d50;
+    --green-mid: #4a7c6a;
+    --green-pale: #eaf2ee;
+    --green-line: #d3e3db;
+    --gold: #b8893d;
+    --gold-pale: #f7efe0;
+    --ink: #1f2723;
+    --ink-soft: #5b6560;
+    --ink-faint: #929b96;
+    --paper: #ffffff;
+    --shell: #eef1ef;
+    --tag-real-bg: #e3efe8;
+    --tag-real-fg: #2f5d50;
+    --tag-ex-bg: #f2ede2;
+    --tag-ex-fg: #97772f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    background: var(--shell);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    padding: 24px 12px;
+  }
+  .sheet {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--paper);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(31,39,35,0.10);
+  }
+  .head {
+    background: linear-gradient(150deg, var(--green-deep) 0%, var(--green-mid) 100%);
+    color: #fff;
+    padding: 26px 26px 24px;
+  }
+  .head .eyebrow {
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #b6cfc4; font-weight: 600; margin-bottom: 8px;
+  }
+  .head h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.02em; }
+  .head .addr { font-size: 13.5px; color: #c8dbd2; margin-top: 6px; }
+
+  section { padding: 22px 26px; border-top: 1px solid var(--green-line); }
+  section:first-of-type { border-top: none; }
+  .label {
+    font-size: 11.5px; letter-spacing: 0.12em; color: var(--ink-faint);
+    font-weight: 700; text-transform: uppercase; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .label::after { content: ""; flex: 1; height: 1px; background: var(--green-line); }
+
+  .verdict {
+    background: var(--green-pale);
+    border: 1.5px solid var(--green-line);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .verdict-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .pill {
+    background: var(--green-deep); color: #fff; font-size: 12px; font-weight: 700;
+    padding: 4px 12px; border-radius: 20px;
+  }
+  .fit { font-size: 13px; color: var(--green-mid); font-weight: 700; }
+  .fit b { font-size: 20px; }
+  .verdict h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .verdict p { font-size: 14.5px; color: var(--ink-soft); }
+  .verdict p b { color: var(--ink); }
+
+  .hero { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 14px; margin-top: 18px; }
+  .hero-main {
+    background: var(--gold-pale); border-radius: 14px; padding: 18px 20px;
+    border: 1px solid #ecdcbe;
+  }
+  .hero-main .cap { font-size: 12.5px; color: var(--gold); font-weight: 700; letter-spacing: 0.04em; }
+  .hero-main .big { font-size: 44px; font-weight: 800; color: var(--gold); line-height: 1.05; margin: 4px 0; }
+  .hero-main .big span { font-size: 18px; }
+  .hero-main .sub { font-size: 12.5px; color: #96773a; }
+  .hero-alt {
+    background: #f6f8f7; border-radius: 14px; padding: 16px 18px; border: 1px solid var(--green-line);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .hero-alt .cap { font-size: 12px; color: var(--ink-faint); font-weight: 700; margin-bottom: 8px; }
+  .hero-alt .row { display: flex; justify-content: space-between; font-size: 13.5px; margin: 3px 0; }
+  .hero-alt .row b { color: var(--ink-soft); font-weight: 600; }
+  .hero-alt .row span { color: var(--ink-faint); }
+
+  .reason-head { font-size: 15px; font-weight: 800; margin-bottom: 3px; }
+  .reason-sub { font-size: 12.5px; color: var(--ink-faint); margin-bottom: 14px; }
+  .rz-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 11px 0; border-bottom: 1px dashed var(--green-line);
+  }
+  .rz-row:last-child { border-bottom: none; }
+  .rz-left { font-size: 13.5px; color: var(--ink-soft); }
+  .rz-left b { color: var(--ink); font-weight: 700; }
+  .rz-w { font-size: 11px; color: var(--ink-faint); margin-left: 2px; }
+  .rz-right { font-size: 14px; font-weight: 700; color: var(--green-deep); text-align: right; }
+  .disclaimer {
+    margin-top: 16px; font-size: 12.5px; color: var(--ink-soft);
+    background: #f6f8f7; border-radius: 10px; padding: 12px 14px; line-height: 1.55;
+  }
+
+  .comp-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .comp-cell { text-align: center; background: #f6f8f7; border-radius: 12px; padding: 16px 6px; border: 1px solid var(--green-line); }
+  .comp-cell.zero { background: var(--green-pale); border-color: var(--green-mid); }
+  .comp-num { font-size: 30px; font-weight: 800; color: var(--ink); }
+  .comp-cell.zero .comp-num { color: var(--green-deep); }
+  .comp-name { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+  .comp-base { font-size: 11px; color: var(--ink-faint); margin-top: 3px; }
+  .comp-note { font-size: 12px; color: var(--ink-faint); margin-top: 12px; }
+
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
+  .kv .item { padding: 10px 0; border-bottom: 1px solid #eef1ef; display: flex; justify-content: space-between; align-items: baseline; }
+  .kv .k { font-size: 13px; color: var(--ink-faint); }
+  .kv .v { font-size: 13.5px; color: var(--ink); font-weight: 600; text-align: right; }
+
+  .tag { font-size: 10px; font-weight: 700; padding: 1.5px 7px; border-radius: 6px; margin-left: 5px; vertical-align: middle; letter-spacing: 0.02em; }
+  .tag.real { background: var(--tag-real-bg); color: var(--tag-real-fg); }
+  .tag.ex { background: var(--tag-ex-bg); color: var(--tag-ex-fg); }
+  .legend { display: flex; gap: 16px; margin-top: 14px; font-size: 11.5px; color: var(--ink-faint); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  .dot.real { background: var(--tag-real-fg); }
+  .dot.ex { background: var(--tag-ex-fg); }
+
+  .cost-note { font-size: 12px; color: var(--ink-faint); margin-top: 10px; line-height: 1.5; }
+
+  .cta { padding: 22px 26px 28px; }
+  .cta button {
+    width: 100%; background: var(--green-deep); color: #fff; border: none;
+    padding: 17px; border-radius: 12px; font-size: 15.5px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.01em; font-family: inherit;
+    transition: background 0.15s;
+  }
+  .cta button:hover { background: #264a40; }
+  .cta .fine { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 12px; line-height: 1.5; }
+
+  @media (max-width: 400px) {
+    .hero { grid-template-columns: 1fr; }
+    .kv { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="head">
+    <div class="eyebrow">AI 창업 기회 리포트</div>
+    <h1>양덕동 A공실</h1>
+    <div class="addr">경상북도 포항시 북구 양덕로 (예시 주소)</div>
+  </div>
+
+  <section>
+    <div class="verdict">
+      <div class="verdict-top">
+        <span class="pill">1순위 추천</span>
+        <span class="fit">종합 적합도 <b>82</b>%</span>
+      </div>
+      <h2>세탁소</h2>
+      <p>주민 <b>32명</b>이 선결제로 원했고, 반경 500m 안에 세탁소가 <b>0개</b>입니다.</p>
+    </div>
+
+    <div class="hero">
+      <div class="hero-main">
+        <div class="cap">선결제 대기 고객</div>
+        <div class="big">32<span>명</span></div>
+        <div class="sub">개업일 첫 손님 · 이미 지갑을 연 수요</div>
+      </div>
+      <div class="hero-alt">
+        <div class="cap">2·3순위 후보</div>
+        <div class="row"><b>반찬가게</b><span>64%</span></div>
+        <div class="row"><b>약국</b><span>58%</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="reason-head">AI가 이렇게 판단했어요</div>
+    <div class="reason-sub">적합도 = 수요 × 면적적합 × 경쟁보정 점수를 0~100 지수로 변환 (100% 미도달 설계)</div>
+    <div class="rz">
+      <div class="rz-row">
+        <span class="rz-left"><b>수요</b><span class="rz-w"> · 직접표 + 인근 가중</span></span>
+        <span class="rz-right">32표 · 업종 1위</span>
+      </div>
+      <div class="rz-row">
+        <span class="rz-left"><b>면적 적합</b><span class="rz-w"> · 업종 요구 범위 대비</span></span>
+        <span class="rz-right">10평 · 세탁소 적정 (1.0)</span>
+      </div>
+      <div class="rz-row">
+        <span class="rz-left"><b>경쟁 보정</b><span class="rz-w"> · 동네 평균 대비</span></span>
+        <span class="rz-right">0곳 / 평균 2.1 → 기회 (1.0)</span>
+      </div>
+      <div class="rz-row">
+        <span class="rz-left"><b>참고 정보</b><span class="rz-w"> · 점수 미반영</span></span>
+        <span class="rz-right">1층 · 직전 의류점</span>
+      </div>
+    </div>
+    <div class="disclaimer">
+      AI는 성공을 보장하지 않습니다. 검증된 <b>수요와 개업일 첫 손님까지</b>가 명당의 책임이며, 이후 운영과 품질은 창업자의 몫입니다.
+    </div>
+  </section>
+
+  <section>
+    <div class="label">주변 경쟁 · 반경 500m</div>
+    <div class="comp-grid">
+      <div class="comp-cell zero">
+        <div class="comp-num">0</div>
+        <div class="comp-name">세탁소</div>
+        <div class="comp-base">동네 평균 2.1</div>
+      </div>
+      <div class="comp-cell">
+        <div class="comp-num">12</div>
+        <div class="comp-name">카페</div>
+        <div class="comp-base">동네 평균 8.4</div>
+      </div>
+      <div class="comp-cell">
+        <div class="comp-num">5</div>
+        <div class="comp-name">편의점</div>
+        <div class="comp-base">동네 평균 4.7</div>
+      </div>
+    </div>
+    <div class="comp-note">추천 업종(세탁소)은 양덕동 평균(2.1곳)보다 적어 경쟁 공백이 확인됩니다. · 소상공인 상가정보 API 실시간 집계</div>
+  </section>
+
+  <section>
+    <div class="label">이 공실 정보</div>
+    <div class="kv">
+      <div class="item"><span class="k">면적</span><span class="v">33㎡ (10평)<span class="tag real">실측</span></span></div>
+      <div class="item"><span class="k">층</span><span class="v">1층<span class="tag real">실측</span></span></div>
+      <div class="item"><span class="k">직전 업종</span><span class="v">의류점<span class="tag real">API</span></span></div>
+      <div class="item"><span class="k">공실 기간</span><span class="v">약 1년 4개월<span class="tag real">API</span></span></div>
+      <div class="item"><span class="k">보증금 / 월세</span><span class="v">1,000 / 60<span class="tag ex">예시</span></span></div>
+      <div class="item"><span class="k">유동 인구</span><span class="v">보통 (주거형)<span class="tag ex">예시</span></span></div>
+    </div>
+    <div class="legend">
+      <span><i class="dot real"></i> 실측 / 공공 API 확인값</span>
+      <span><i class="dot ex"></i> 시연용 예시값</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="label">창업 실무 참고</div>
+    <div class="kv">
+      <div class="item"><span class="k">예상 초기비용</span><span class="v">약 4,500만원<span class="tag ex">업종평균</span></span></div>
+      <div class="item"><span class="k">필요 인허가</span><span class="v">세탁업 신고<span class="tag real">확인</span></span></div>
+    </div>
+    <div class="cost-note">
+      초기비용은 소상공인시장진흥공단 업종 평균 기준입니다. 실제 비용은 점포 상태·권리금·인테리어 수준에 따라 크게 달라지므로 참고값으로만 보세요.
+    </div>
+  </section>
+
+  <div class="cta">
+    <button>이 자리 중개사에게 연결하기</button>
+    <div class="fine">계약은 지역 공인중개사가 진행합니다. 명당은 검증된 수요와 첫 손님을 전달합니다.</div>
+  </div>
+
+</div>
+</body>
+</html>
