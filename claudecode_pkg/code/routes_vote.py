@@ -34,6 +34,8 @@ def create_vote(payload: VoteCreate):
     """
     동네+업종 투표 생성 (모의결제 held 상태로만 기록, 실제 청구 없음).
     amount_won은 항상 1,000원 고정 — 요청 바디로 받지 않고 서버가 강제한다.
+    free=True면 결제 자체가 없는 진짜 무료 투표로 기록된다(amount_won=0, payment_status='free',
+    캠페인 환불 대상에서도 제외 - campaign.py REFUNDABLE_STATUSES가 'held'만 대상으로 함).
     투표 시점 GPS(lat, lng)는 200m 격자로 스냅해서 voter_grid만 저장하고, 정밀 좌표는 버린다.
 
     주의: 1인 1표 제한·중복 투표 차단 등 어뷰징 방지는 MVP 범위 밖이다.
@@ -43,22 +45,29 @@ def create_vote(payload: VoteCreate):
         raise HTTPException(status_code=404, detail="industry not found")
 
     voter_grid = snap_to_grid(payload.lat, payload.lng)
-    return insert_vote(payload.region_code, payload.industry_id, payload.voter_id, payload.voter_name, voter_grid)
+    return insert_vote(
+        payload.region_code, payload.industry_id, payload.voter_id, payload.voter_name, voter_grid,
+        free=payload.free,
+    )
 
 
 @router.post("/votes/batch", response_model=VoteBatchResponse, status_code=status.HTTP_201_CREATED)
 def create_votes_batch(payload: VoteBatchCreate):
     """
-    여러 세부 업종을 한 번에 담아 투표 + 냥 일괄 차감(cash_ledger, reason='vote').
+    여러 세부 업종을 한 번에 담아 투표 + (free가 아니면) 냥 일괄 차감(cash_ledger, reason='vote').
     투표 시점 GPS는 한 번만 받아 200m 격자로 스냅하고, 담은 업종 전부에 같은 voter_grid를 적용한다.
 
     industry_ids 중 하나라도 없으면 404 — 사전 검증에서 걸러지므로 votes/cash_ledger에는
     아무것도 쓰이지 않는다. 실제 삽입(votes N건 + cash_ledger 차감 1건)은 insert_votes_batch()가
     하나의 DB 트랜잭션으로 묶어서, 중간에 문제가 생겨도 전부 롤백되게 한다.
 
-    잔액 부족 처리: 모의결제 단계라 충전/초기지급 정책(05번 결정대기)이 아직 미정이다.
-    여기서 잔액 부족을 이유로 투표를 막으면 정책이 정해지기 전까지 시연 자체가 막히므로,
-    지금은 막지 않고 insufficient_balance 플래그로만 알려준다. 정책이 확정되면 그때 막는다.
+    free=True면 결제·잔액 확인 자체를 건너뛴다 - total_charged_won=0, insufficient_balance=False
+    로 고정하고, votes는 amount_won=0·payment_status='free'로 기록되어 캠페인 환불 대상에서 빠진다
+    (냥/캐시 시스템을 쓰지 않기로 한 무료 투표하기 트랙 전용).
+
+    잔액 부족 처리(free=False일 때만 해당): 모의결제 단계라 충전/초기지급 정책(05번 결정대기)이
+    아직 미정이다. 여기서 잔액 부족을 이유로 투표를 막으면 정책이 정해지기 전까지 시연 자체가
+    막히므로, 지금은 막지 않고 insufficient_balance 플래그로만 알려준다. 정책이 확정되면 그때 막는다.
 
     주의: 1인 1표 제한·중복 투표 차단 등 어뷰징 방지는 MVP 범위 밖이다 (구현하지 않음).
     """
@@ -70,11 +79,17 @@ def create_votes_batch(payload: VoteBatchCreate):
             raise HTTPException(status_code=404, detail=f"industry not found: {industry_id}")
 
     voter_grid = snap_to_grid(payload.lat, payload.lng)
-    total_charged = 1000 * len(payload.industry_ids)
-    insufficient = get_cash_balance(payload.voter_id) < total_charged
+
+    if payload.free:
+        total_charged = 0
+        insufficient = False
+    else:
+        total_charged = 1000 * len(payload.industry_ids)
+        insufficient = get_cash_balance(payload.voter_id) < total_charged
 
     votes, _ledger_row, balance_after = insert_votes_batch(
-        payload.region_code, payload.industry_ids, payload.voter_id, payload.voter_name, voter_grid
+        payload.region_code, payload.industry_ids, payload.voter_id, payload.voter_name, voter_grid,
+        free=payload.free,
     )
 
     return {

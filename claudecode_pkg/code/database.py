@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS votes (
     voter_name TEXT,               -- 표시명 ≤30자, 고객 명단용
     voter_grid TEXT NOT NULL,      -- v3: 투표 시점 GPS를 200m 격자로 스냅한 좌표 문자열. 정밀 원좌표는 저장 안 함
     amount_won INTEGER NOT NULL DEFAULT 1000,
-    payment_status TEXT NOT NULL DEFAULT 'held',  -- held/settled/refunded/cash_credited
+    payment_status TEXT NOT NULL DEFAULT 'held',  -- held/settled/refunded/cash_credited/free
+                                                    -- free = 결제 자체가 없는 진짜 무료 투표(캠페인 환불 대상 아님, amount_won=0)
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     is_seed INTEGER NOT NULL DEFAULT 0
 );
@@ -111,12 +112,13 @@ CREATE TABLE IF NOT EXISTS placements (
 
 # B가 필요로 하는 v3 집계 계약: (region_code, industry_id, voter_grid) -> 투표수.
 # 공실별 demand(거리감쇠)는 B가 각 공실 좌표와 voter_grid 좌표 간 거리로 가중합을 계산한다 (08번 §2).
-# held/settled만 집계 (refunded·cash_credited는 수요로 세지 않음 — AB공통 v2 계약).
+# held/settled/free만 집계 (refunded·cash_credited는 수요로 세지 않음 — AB공통 v2 계약).
+# free(무료 투표)도 결제는 없지만 수요 신호로는 여전히 유효하므로 집계엔 포함한다.
 VOTE_GRID_SUMMARY_VIEW = """
 CREATE VIEW vote_grid_summary AS
     SELECT region_code, industry_id, voter_grid, COUNT(*) AS vote_count
     FROM votes
-    WHERE payment_status IN ('held', 'settled')
+    WHERE payment_status IN ('held', 'settled', 'free')
     GROUP BY region_code, industry_id, voter_grid;
 """
 
@@ -186,16 +188,22 @@ def industry_exists(industry_id: int) -> bool:
         conn.close()
 
 
-def insert_vote(region_code: str, industry_id: int, voter_id: str, voter_name: Optional[str], voter_grid: str) -> dict:
-    """1,000원 고정·모의결제(held)·실투표(is_seed=0)로 기록한다."""
+def insert_vote(
+    region_code: str, industry_id: int, voter_id: str, voter_name: Optional[str], voter_grid: str,
+    free: bool = False,
+) -> dict:
+    """1,000원 고정·모의결제(held)·실투표(is_seed=0)로 기록한다.
+    free=True면 결제 없이 amount_won=0·payment_status='free'로 기록(캠페인 환불 대상 아님)."""
+    amount_won = 0 if free else 1000
+    payment_status = "free" if free else "held"
     conn = get_connection()
     try:
         cur = conn.execute(
             """
             INSERT INTO votes (region_code, industry_id, voter_id, voter_name, voter_grid, amount_won, payment_status, is_seed)
-            VALUES (?, ?, ?, ?, ?, 1000, 'held', 0)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0)
             """,
-            (region_code, industry_id, voter_id, voter_name, voter_grid),
+            (region_code, industry_id, voter_id, voter_name, voter_grid, amount_won, payment_status),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM votes WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -210,13 +218,18 @@ def insert_votes_batch(
     voter_id: str,
     voter_name: Optional[str],
     voter_grid: str,
-) -> tuple[list[dict], dict, int]:
+    free: bool = False,
+) -> tuple[list[dict], Optional[dict], int]:
     """
-    여러 업종을 한 번에 투표 + 냥 일괄 차감(cash_ledger)을 하나의 트랜잭션으로 묶는다.
+    여러 업종을 한 번에 투표 + (free가 아니면) 냥 일괄 차감(cash_ledger)을 하나의 트랜잭션으로 묶는다.
     호출부(routes_vote)가 industry_ids 존재를 이미 사전 검증하지만, 혹시 검증과 삽입 사이에
     끼어드는 문제(FK 위반 등)가 있어도 전부 롤백되도록 커밋 전까지는 아무것도 확정하지 않는다.
-    반환: (삽입된 votes 목록, cash_ledger 차감 행, 차감 후 잔액)
+    free=True면 결제 자체가 없다 - amount_won=0·payment_status='free'로만 기록하고 cash_ledger는
+    건드리지 않는다(차감도 없고 잔액도 그대로).
+    반환: (삽입된 votes 목록, cash_ledger 차감 행(free면 None), 차감 후 잔액(free면 기존 잔액 그대로))
     """
+    amount_won = 0 if free else 1000
+    payment_status = "free" if free else "held"
     conn = get_connection()
     try:
         votes = []
@@ -224,24 +237,30 @@ def insert_votes_batch(
             cur = conn.execute(
                 """
                 INSERT INTO votes (region_code, industry_id, voter_id, voter_name, voter_grid, amount_won, payment_status, is_seed)
-                VALUES (?, ?, ?, ?, ?, 1000, 'held', 0)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
                 """,
-                (region_code, industry_id, voter_id, voter_name, voter_grid),
+                (region_code, industry_id, voter_id, voter_name, voter_grid, amount_won, payment_status),
             )
             row = conn.execute("SELECT * FROM votes WHERE id = ?", (cur.lastrowid,)).fetchone()
             votes.append(dict(row))
 
-        total_charged = 1000 * len(industry_ids)
-        cur = conn.execute(
-            "INSERT INTO cash_ledger (voter_id, delta_won, reason, ref_id) VALUES (?, ?, 'vote', NULL)",
-            (voter_id, -total_charged),
-        )
-        ledger_row = dict(conn.execute("SELECT * FROM cash_ledger WHERE id = ?", (cur.lastrowid,)).fetchone())
-
-        balance_after = conn.execute(
-            "SELECT COALESCE(SUM(delta_won), 0) AS balance FROM cash_ledger WHERE voter_id = ?",
-            (voter_id,),
-        ).fetchone()["balance"]
+        if free:
+            ledger_row = None
+            balance_after = conn.execute(
+                "SELECT COALESCE(SUM(delta_won), 0) AS balance FROM cash_ledger WHERE voter_id = ?",
+                (voter_id,),
+            ).fetchone()["balance"]
+        else:
+            total_charged = 1000 * len(industry_ids)
+            cur = conn.execute(
+                "INSERT INTO cash_ledger (voter_id, delta_won, reason, ref_id) VALUES (?, ?, 'vote', NULL)",
+                (voter_id, -total_charged),
+            )
+            ledger_row = dict(conn.execute("SELECT * FROM cash_ledger WHERE id = ?", (cur.lastrowid,)).fetchone())
+            balance_after = conn.execute(
+                "SELECT COALESCE(SUM(delta_won), 0) AS balance FROM cash_ledger WHERE voter_id = ?",
+                (voter_id,),
+            ).fetchone()["balance"]
 
         conn.commit()
         return votes, ledger_row, balance_after
@@ -264,7 +283,7 @@ def get_vote_summary_detail(include_seed: bool = True) -> tuple[list[dict], int]
                    i.name AS industry_name, v.voter_grid AS voter_grid, COUNT(*) AS vote_count
             FROM votes v
             JOIN industries i ON i.id = v.industry_id
-            WHERE v.payment_status IN ('held', 'settled')
+            WHERE v.payment_status IN ('held', 'settled', 'free')
         """
         if not include_seed:
             query += " AND v.is_seed = 0"
@@ -290,7 +309,7 @@ def get_region_demand(region_code: str, include_seed: bool = True) -> tuple[int,
             SELECT v.industry_id AS industry_id, i.name AS industry_name, COUNT(*) AS vote_count
             FROM votes v
             JOIN industries i ON i.id = v.industry_id
-            WHERE v.region_code = ? AND v.payment_status IN ('held', 'settled')
+            WHERE v.region_code = ? AND v.payment_status IN ('held', 'settled', 'free')
         """
         params: list = [region_code]
         if not include_seed:
@@ -321,7 +340,7 @@ def get_regions_summary() -> list[dict]:
             """
             SELECT region_code, COUNT(*) AS total_votes
             FROM votes
-            WHERE payment_status IN ('held', 'settled')
+            WHERE payment_status IN ('held', 'settled', 'free')
             GROUP BY region_code
             ORDER BY region_code
             """

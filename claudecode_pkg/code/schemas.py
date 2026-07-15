@@ -41,6 +41,7 @@ class VoteCreate(BaseModel):
     voter_name: Optional[str] = Field(default=None, max_length=30)
     lat: float
     lng: float
+    free: bool = False  # True면 결제/캠페인 환불 대상에서 완전히 제외된 진짜 무료 투표(payment_status='free')
 
 
 class VoteOut(BaseModel):
@@ -76,6 +77,7 @@ class VoteBatchCreate(BaseModel):
     lat: float
     lng: float
     industry_ids: list[int]
+    free: bool = False  # True면 이 배치 전부 무료 - cash_ledger 차감 없음, payment_status='free'
 
 
 class VoteBatchResponse(BaseModel):
