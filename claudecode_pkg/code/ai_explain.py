@@ -55,17 +55,26 @@ def facts_from_report(report: dict, card: dict) -> dict:
     }
 
 
-def allowed_numbers(facts: dict) -> set:
-    """화이트리스트 = facts 안의 모든 수치(float 정규화)."""
-    return {float(v) for v in facts.values() if isinstance(v, (int, float))}
-
-
 _NUM_RE = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
 
 
 def extract_numbers(text: str) -> list:
     """텍스트에서 숫자 토큰 추출 → float. 천단위 콤마 제거."""
     return [float(tok.replace(",", "")) for tok in _NUM_RE.findall(text)]
+
+
+def allowed_numbers(facts: dict) -> set:
+    """
+    화이트리스트 = facts 안의 모든 수치(float 정규화) + 문자열 필드(공실명·동네코드 등)에
+    박혀 있는 숫자. 공실명이 "양덕 1번 공실"처럼 숫자를 포함하면 모델이 이름을 그대로
+    되풀이할 때 그 숫자가 "새로 만든 숫자"로 오탐되므로, 입력에 이미 준 문자열 속 숫자도 화이트리스트에 넣는다
+    (실호출 검증 중 발견 — 공실명 숫자 때문에 정상 해설이 매번 폐기되는 문제).
+    """
+    numbers = {float(v) for v in facts.values() if isinstance(v, (int, float))}
+    for v in facts.values():
+        if isinstance(v, str):
+            numbers.update(extract_numbers(v))
+    return numbers
 
 
 def _has_guarantee(text: str) -> bool:
