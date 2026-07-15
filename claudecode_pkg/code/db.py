@@ -43,15 +43,23 @@ CREATE TABLE IF NOT EXISTS vacancies (
     prev_industry TEXT,
     competitors   TEXT NOT NULL DEFAULT '{}',  -- JSON: {industry_id: 경쟁점 수}
     evidence      TEXT,
-    is_seed       INTEGER NOT NULL DEFAULT 0
+    is_seed       INTEGER NOT NULL DEFAULT 0,
+    -- v2 중개사 등록 필드(08번 §4) — 전환기 additive. 미등록이면 리포트 '확인 필요'.
+    building_use  TEXT,                        -- 건물 용도(근린생활시설 등)
+    facilities    TEXT,                        -- JSON 체크박스(상하수도/환기/가스/화장실/주차)
+    rent_terms    TEXT,                        -- 임대 조건/권리금
+    source_tag    TEXT                         -- API/실측/중개사등록 구분
 );
 
 CREATE TABLE IF NOT EXISTS votes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    vacancy_id     TEXT NOT NULL REFERENCES vacancies(id),
+    vacancy_id     TEXT REFERENCES vacancies(id),  -- v2 전환: nullable(동네 투표는 공실 지정 없음). v1 경로만 채움
     industry_id    TEXT NOT NULL REFERENCES industries(id),
     voter_id       TEXT NOT NULL,
-    voter_name     TEXT,                          -- 표시명(고객 명단용). 계약 밖 추가 — A/문서에 통지 필요
+    voter_name     TEXT,                          -- 표시명(고객 명단용)
+    region_code    TEXT,                          -- v2: 어느 동네(격자 집계 키)
+    voter_grid     TEXT,                          -- v2: 200m 격자 좌표(행동 범위, 원좌표 미저장)
+    weight         REAL NOT NULL DEFAULT 1.0,      -- v2: 다중투표 1/N 가중(팀 결정 시 config)
     amount_won     INTEGER NOT NULL DEFAULT 1000,
     payment_status TEXT NOT NULL DEFAULT 'held'
                    CHECK (payment_status IN ('held','settled','refunded','cash_credited')),
@@ -77,13 +85,35 @@ CREATE TABLE IF NOT EXISTS campaign (
     is_seed          INTEGER NOT NULL DEFAULT 0
 );
 
+-- v2 성사 레코드(08번 §7) — "우리를 통한 창업" 구분. 지도 상태(공사중/영업중)·쿠폰 사용처의 근거.
+CREATE TABLE IF NOT EXISTS placements (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    vacancy_id   TEXT NOT NULL REFERENCES vacancies(id),
+    industry_id  TEXT NOT NULL REFERENCES industries(id),
+    founder_id   TEXT,
+    campaign_id  TEXT,
+    confirmed_by TEXT,                          -- 중개사/운영자(모의 확인)
+    confirmed_at TEXT,
+    status       TEXT NOT NULL DEFAULT 'preparing'
+                 CHECK (status IN ('preparing','open','closed')),   -- 공사중/영업중/폐업
+    is_seed      INTEGER NOT NULL DEFAULT 0
+);
+
 -- 계약의 집계 뷰: (vacancy_id, industry_id) → 투표수.
 -- 유효 표만 집계(held/settled). 환불·캐시전환 표를 수요로 세지 않기 위함(2단계에서 재확인).
 CREATE VIEW IF NOT EXISTS vote_counts_view AS
     SELECT vacancy_id, industry_id, COUNT(*) AS vote_count
     FROM votes
-    WHERE payment_status IN ('held', 'settled')
+    WHERE payment_status IN ('held', 'settled') AND vacancy_id IS NOT NULL
     GROUP BY vacancy_id, industry_id;
+
+-- v2 격자 집계 뷰: (industry_id, region_code, voter_grid) → 가중치 합.
+-- 유효 표만(held/settled), 격자 있는 v2 표만. 공실 수요 = 반경 내 grid 거리 가중 합(엔진 P2).
+CREATE VIEW IF NOT EXISTS vote_grid_counts_view AS
+    SELECT industry_id, region_code, voter_grid, SUM(weight) AS vote_weight
+    FROM votes
+    WHERE payment_status IN ('held', 'settled') AND voter_grid IS NOT NULL
+    GROUP BY industry_id, region_code, voter_grid;
 """
 
 
@@ -103,14 +133,28 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _add_missing(conn: sqlite3.Connection, table: str, coldefs: list) -> None:
+    """table 에 없는 컬럼만 ALTER 로 추가. coldefs = [(name, "TYPE ..."), ...]. 멱등."""
+    existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    for name, decl in coldefs:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """계약 규칙(AB공통 v2): 컬럼 추가는 ALTER TABLE 로 기존 DB 파일에도 반영한다.
     CREATE TABLE IF NOT EXISTS 는 이미 있는 테이블에 새 컬럼을 넣지 못한다
     (voter_name 이슈 실증 — 낡은 mydang.db 로 POST /votes 시 500).
+    placements 신설은 executescript(IF NOT EXISTS)가 처리하므로 여기선 컬럼만.
     """
-    votes_cols = {r[1] for r in conn.execute("PRAGMA table_info(votes)")}
-    if "voter_name" not in votes_cols:
-        conn.execute("ALTER TABLE votes ADD COLUMN voter_name TEXT")
+    _add_missing(conn, "votes", [            # voter_name(기존) + v2 격자/가중(P0-b)
+        ("voter_name", "TEXT"), ("region_code", "TEXT"),
+        ("voter_grid", "TEXT"), ("weight", "REAL NOT NULL DEFAULT 1.0"),
+    ])
+    _add_missing(conn, "vacancies", [        # v2 중개사 등록 필드(P0-a)
+        ("building_use", "TEXT"), ("facilities", "TEXT"),
+        ("rent_terms", "TEXT"), ("source_tag", "TEXT"),
+    ])
 
 
 def reset_seed(conn: sqlite3.Connection) -> dict:
@@ -171,6 +215,24 @@ def get_vote_counts(conn: sqlite3.Connection, region_code: str | None = None) ->
                  WHERE v.region_code = ?"""
         params = (region_code,)
     return {(r["vacancy_id"], r["industry_id"]): r["vote_count"]
+            for r in conn.execute(sql, params)}
+
+
+def get_grid_counts(conn, region_code=None, industry_id=None) -> dict:
+    """v2 격자 집계 계약: {(industry_id, region_code, voter_grid): weight합}.
+
+    held/settled·격자 있는 표만(vote_grid_counts_view). B 엔진(P2)이 이걸 읽어
+    공실 수요 = 반경 내 grid 거리 가중 합으로 계산한다. region_code·industry_id 로 필터 가능.
+    """
+    sql = "SELECT industry_id, region_code, voter_grid, vote_weight FROM vote_grid_counts_view"
+    conds, params = [], []
+    if region_code is not None:
+        conds.append("region_code = ?"); params.append(region_code)
+    if industry_id is not None:
+        conds.append("industry_id = ?"); params.append(industry_id)
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+    return {(r["industry_id"], r["region_code"], r["voter_grid"]): r["vote_weight"]
             for r in conn.execute(sql, params)}
 
 
