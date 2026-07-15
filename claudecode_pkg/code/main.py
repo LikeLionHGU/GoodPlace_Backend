@@ -6,6 +6,7 @@ import json
 from typing import Optional
 
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 import config
 config.load_env_file()          # code/.env 의 키(OPENAI/SBIZ)를 os.environ 으로. 키는 코드에 두지 않는다.
@@ -22,6 +23,19 @@ import routes_map
 import ingest_api
 
 app = FastAPI(title="명당 백엔드 - 담당 A")
+
+# 프런트(GoodPlace_Front, 정적 파일 - 로컬 개발 서버)에서 브라우저로 직접 호출하기 위한 CORS 허용.
+# 로컬 개발용 origin만 허용 — 배포 시 실제 프런트 도메인으로 좁혀야 한다.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5500", "http://127.0.0.1:5500",
+        "http://localhost:8080", "http://127.0.0.1:8080",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(routes_vote.router)
 app.include_router(routes_cash.router)
 app.include_router(routes_region.router)
