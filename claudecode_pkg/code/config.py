@@ -30,3 +30,35 @@ VOTER_NAME_MAX_LEN = 30         # 표시명 길이 제한
 # 지역은 하드코딩 금지 — region_code(행정동 코드)를 인자로 받는다(양덕동은 첫 적용지).
 SBIZ_API_BASE = "http://apis.data.go.kr/B553077/api/open/sdsc2"
 SBIZ_DEFAULT_ROWS = 100         # 페이지당 건수(대량은 페이징 — 명세서 참조)
+
+# ── v2 격자·투표·냥 (전환 P1) ────────────────────────────────────────────
+# GRID_DEG: GPS→200m 격자 반올림 단위(위도 기준 근사). 설계 초기값 — 실데이터 조정 대상.
+#   정밀 좌표를 저장하지 않고 격자 셀로만 저장(민감정보 최소화 · 08번 §1).
+GRID_DEG = 0.0018
+
+CASH_PER_VOTE_NYANG = 100        # 업종 1개 투표 = 100냥(=1,000원)
+CASH_PER_REPORT_NYANG = 50       # 리포트 생성 = 50냥(=500원)
+
+# 다중투표 수요 카운트: "split"=1/N(권장, 돈 많이 쓴 사람 수요 왜곡 방지) / "full"=업종당 온전히 1.
+# 팀 결정 시 이 값만 바꾼다(미확정 — 기본 split).
+MULTI_VOTE_COUNT_MODE = "split"
+
+
+# ── .env 로더 (stdlib · 외부 의존성 없음) ────────────────────────────────
+def load_env_file(path=None):
+    """code/.env 를 읽어 os.environ 에 채운다. 이미 설정된 값은 덮지 않는다(setdefault).
+
+    키는 이 파일에서 os.environ 으로만 들어온다 — 코드·로그·저장소에 평문 금지.
+    main.py(서버 기동)에서 호출. 테스트/CLI 는 셸 환경변수를 그대로 쓴다.
+    """
+    import os
+    p = path or os.path.join(os.path.dirname(__file__), ".env")
+    if not os.path.exists(p):
+        return
+    with open(p, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
