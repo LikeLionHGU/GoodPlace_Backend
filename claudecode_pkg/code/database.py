@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 DB_PATH = Path(__file__).parent / "meongdang.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def get_connection() -> sqlite3.Connection:
@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS placements (
     region_code TEXT NOT NULL,
     industry_id INTEGER NOT NULL REFERENCES industries(id),
     vacancy_id INTEGER NOT NULL REFERENCES vacancies(id),  -- 어느 공실에 성사됐는지
-    status TEXT NOT NULL DEFAULT 'pending',  -- 상태 전이 규칙은 6단계에서 확정 (지금은 스키마만 선생성)
+    status TEXT NOT NULL DEFAULT 'preparing',  -- I4b 확정: preparing(매칭됨·미개업)/open(개업 확정)
+                                                -- 이 행이 아예 없으면 지도상 'vacant'(공실 그대로)로 파생
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     is_seed INTEGER NOT NULL DEFAULT 0
 );
@@ -367,3 +368,123 @@ def won_to_nyang(won: int) -> int:
 
 def nyang_to_won(nyang: int) -> int:
     return nyang * 10
+
+
+# ── I4a: 캠페인 생성·조회·환불 적용 (담당 A — campaign.py의 순수 판정을 그대로 소비) ──────
+def insert_campaign(region_code: str, deadline: str, coupon_value_won: int = 1000) -> dict:
+    """캠페인 생성. status는 항상 'open'으로 시작(팀 확정: 기간제·목표 투표수 없음)."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO campaign (region_code, deadline, coupon_value_won, status) VALUES (?, ?, ?, 'open')",
+            (region_code, deadline, coupon_value_won),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM campaign WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def get_campaign(campaign_id: int) -> Optional[dict]:
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM campaign WHERE id = ?", (campaign_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_held_votes_for_region(region_code: str) -> list[dict]:
+    """환불 판정 후보(그 동네의 held 투표). 실제 환불 대상 선별은 campaign.refund_targets()가 한다."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM votes WHERE region_code = ? AND payment_status = 'held'", (region_code,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def apply_campaign_refund(campaign_id: int, votes: list[dict]) -> list[dict]:
+    """
+    캠페인 기한 경과·미성사 환불 적용 — 하나의 트랜잭션으로 원자적 처리:
+      1) 넘겨받은 각 투표를 payment_status='refunded'로 전환(집계·재환불 방지 — vote_grid_summary가 자동 제외)
+      2) cash_ledger에 +적립(reason='refund', ref_id=투표 id)
+      3) campaign.status='failed'
+    votes는 campaign.refund_targets()로 이미 걸러진 held 투표만 들어온다는 전제(순수 판정은 B 몫).
+    """
+    conn = get_connection()
+    try:
+        ledger_rows = []
+        for v in votes:
+            conn.execute("UPDATE votes SET payment_status = 'refunded' WHERE id = ?", (v["id"],))
+            cur = conn.execute(
+                "INSERT INTO cash_ledger (voter_id, delta_won, reason, ref_id) VALUES (?, ?, 'refund', ?)",
+                (v["voter_id"], v["amount_won"], v["id"]),
+            )
+            ledger_rows.append(
+                dict(conn.execute("SELECT * FROM cash_ledger WHERE id = ?", (cur.lastrowid,)).fetchone())
+            )
+        conn.execute("UPDATE campaign SET status = 'failed' WHERE id = ?", (campaign_id,))
+        conn.commit()
+        return ledger_rows
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+# ── I4b: 지도 /map — placements 기반 상태 파생 (담당 A) ─────────────────────────
+def insert_placement(region_code: str, industry_id: int, vacancy_id: int) -> dict:
+    """성사 레코드 생성. status='preparing'으로 시작(매칭됨·아직 개업 전).
+    실제 '관리자 확인 버튼(모의)'을 통한 성사 처리 흐름은 09번 보드 #11(별도)."""
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO placements (region_code, industry_id, vacancy_id, status) VALUES (?, ?, ?, 'preparing')",
+            (region_code, industry_id, vacancy_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM placements WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def update_placement_status(placement_id: int, status: str) -> dict:
+    """status는 'preparing' 또는 'open'만 허용(그 외는 스키마 계약 위반)."""
+    if status not in ("preparing", "open"):
+        raise ValueError(f"허용되지 않는 placement status: {status!r} (preparing/open만 가능)")
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE placements SET status = ? WHERE id = ?", (status, placement_id))
+        conn.commit()
+        row = conn.execute("SELECT * FROM placements WHERE id = ?", (placement_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_map_statuses(region_code: str) -> dict:
+    """
+    그 동네 공실별 지도 상태: {vacancy_id: 'vacant'|'preparing'|'open'}.
+    placements 행이 없는 공실은 'vacant'(공실 그대로). 한 공실에 행이 여러 개면
+    가장 최근(id 최댓값) 것을 기준으로 한다.
+    """
+    conn = get_connection()
+    try:
+        vac_ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM vacancies WHERE region_code = ?", (region_code,)
+        ).fetchall()]
+        rows = conn.execute(
+            "SELECT vacancy_id, status FROM placements WHERE region_code = ? ORDER BY id ASC", (region_code,)
+        ).fetchall()
+        latest_status = {}
+        for r in rows:
+            latest_status[r["vacancy_id"]] = r["status"]  # ORDER BY id ASC라 마지막에 덮어써진 값이 최신
+        return {vid: latest_status.get(vid, "vacant") for vid in vac_ids}
+    finally:
+        conn.close()
