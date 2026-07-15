@@ -26,10 +26,14 @@ c = rep["conclusion"]; wc = rep["waiting_customers"]; cm = rep["competition"]
 print(f"① {c['headline']}")
 print(f"   \"{c['one_liner']}\"")
 print(f"② 선결제 대기 고객: {wc['count']}명  — {wc['label']}  (쿠폰 {wc['coupon_value_won']:,}원) [{wc['source']}]")
-print("③ 배치 근거:")
-for name, f in rep["reasoning"]["factors"].items():
-    print(f"     {name} (가중 {f['weight']}%) · 점수 {f['score01']}")
-print(f"   ⚠ {rep['reasoning']['note']}")
+print("③ 배치 근거 (엔진 곱셈 3요소):")
+rs = rep["reasoning"]; fac = rs["factors"]
+dm = fac["수요"]
+print(f"     수요 · 직접표 {dm['direct_votes']} + 인근가중 {dm['nearby_weighted']} = 수요 {dm['demand']}")
+print(f"     면적 적합 · {fac['면적 적합']['score01']}")
+cp = fac["경쟁 보정"]
+print(f"     경쟁 보정 · {cp['score01']} (동네 평균 대비 {cp['competition_ratio']}배)")
+print(f"   ⚠ {rs['disclaimer']}")
 print(f"④ 주변 경쟁: {cm['industry']} {cm['count']['value']}곳(동네 평균 {cm['neighborhood_avg']['value']}) · {cm['reading']}")
 ref = rep["reference"]
 print(f"⑤ 참고 비용: 약 {ref['startup_cost_manwon']['value']}만원 [{ref['startup_cost_manwon']['source']}] · 인허가: {ref['licenses']['value']}")

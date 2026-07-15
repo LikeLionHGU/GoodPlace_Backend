@@ -10,8 +10,9 @@ vote_counts 는 {(vacancy_id, industry_id): 투표수} 형태로만 받는다 (v
     score(공실, 업종) = demand × area_fit × competition_factor
         demand             = 직접 투표수 + w1 × 같은 업종의 '인근' 공실 투표수
         area_fit           = 면적 범위 안 1.0, 벗어나면 비율 감점(하한 0.2)
-        competition_factor = 1 / (1 + w2 × 주변 동일업종 경쟁점 수)
-    w1·w2 는 잠정값 — 팀 결정 대기(03·05번). 아래 DEFAULT_WEIGHTS 한 곳에서만 바꾼다.
+        competition_factor = 동네 평균 대비 비율: ratio≤1 → 1.0(무감점) / ratio>1 → 1/(1+w2×(ratio-1))
+    w1=0.4·w2=1.0 은 확정(CLAUDE.md 3절) — 설계 초기값이라 실데이터 확보 후 캘리브레이션 여지.
+    아래 DEFAULT_WEIGHTS 한 곳에서만 바꾼다.
 
 배치(4단계): 같은 업종을 두 공실에 배정하지 않는 배정(assignment) 문제.
     규모가 작으면 전수 탐색(최적 보장), 크면 그리디 폴백.

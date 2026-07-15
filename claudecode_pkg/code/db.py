@@ -97,9 +97,20 @@ def connect(db_path: str | None = None) -> sqlite3.Connection:
 
 
 def init_db(conn: sqlite3.Connection) -> None:
-    """테이블·뷰 생성(멱등)."""
+    """테이블·뷰 생성(멱등) + 경량 마이그레이션(기존 DB 파일에 누락 컬럼 보충)."""
     conn.executescript(SCHEMA_SQL)
+    _migrate(conn)
     conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """계약 규칙(AB공통 v2): 컬럼 추가는 ALTER TABLE 로 기존 DB 파일에도 반영한다.
+    CREATE TABLE IF NOT EXISTS 는 이미 있는 테이블에 새 컬럼을 넣지 못한다
+    (voter_name 이슈 실증 — 낡은 mydang.db 로 POST /votes 시 500).
+    """
+    votes_cols = {r[1] for r in conn.execute("PRAGMA table_info(votes)")}
+    if "voter_name" not in votes_cols:
+        conn.execute("ALTER TABLE votes ADD COLUMN voter_name TEXT")
 
 
 def reset_seed(conn: sqlite3.Connection) -> dict:
@@ -231,7 +242,8 @@ def votes_summary(conn, region_code=None):
 def cash_add(conn, voter_id, delta_won, reason, ref_id=None):
     """캐시 원장에 적립(+)/사용(-) 1건 기록. reason ∈ refund/vote/coupon(계약 CHECK).
 
-    금액 단위·교환비율·유효기간은 config.CASH_POLICY 에서 미확정(팀 결정 대기).
+    원장은 '원(delta_won)' 단위로 저장(A 스키마 계약). 표시 단위 '냥'·교환비율(1냥=10원)·
+    유효기간(만료 없음)은 config.CASH_POLICY 확정(2026-07-15).
     """
     cur = conn.execute(
         "INSERT INTO cash_ledger (voter_id, delta_won, reason, ref_id) VALUES (?, ?, ?, ?)",
