@@ -33,6 +33,8 @@ v3 전환의 핵심: 주어가 뒤집혔다.
 """
 
 from __future__ import annotations
+import json
+
 from engine import score, DEFAULT_WEIGHTS
 
 DISCLAIMER = ("AI는 성공을 보장하지 않습니다. 검증된 수요와 개업일 첫 손님까지가 명당의 책임이며, "
@@ -151,6 +153,20 @@ def build_report(industry_id, region_code, vacancies, industries, grid_votes_all
         flag = _saturation_flag(ratio)
         waiting = bd["raw_voters"]  # 대기 고객 = 이 공실 반경(감쇠 범위 내) 투표자 원시 수
 
+        # 창업자가 실제로 궁금해하는 시설 여부(화장실·하수구 등) — DB엔 이미 공실마다 다른 값이
+        # 시드돼 있었지만(seed.py facilities) 지금까지 API 응답에 노출되지 않아 프론트가 전부
+        # 고정값으로 흉내 냈다. 여기서부터 공실별 실제 값(가능 여부 + 화장실 유형/주차 대수 같은
+        # 세부 비고)을 그대로 내려준다.
+        raw_facilities = vac.get("facilities")
+        fac = json.loads(raw_facilities) if isinstance(raw_facilities, str) else (raw_facilities or {})
+        fac_source = "중개사등록" if raw_facilities else "확인 필요"
+
+        def _fac_field(key: str) -> dict:
+            v = fac.get(key)
+            if isinstance(v, dict):
+                return {"value": bool(v.get("가능")), "detail": v.get("비고", ""), "source": fac_source}
+            return {"value": bool(v), "detail": "", "source": fac_source}
+
         cards.append({
             "rank": rank,
             "vacancy": {
@@ -173,8 +189,19 @@ def build_report(industry_id, region_code, vacancies, industries, grid_votes_all
                 "neighborhood_avg": _tag(bd["neighborhood_avg"], "파생"),
                 "competition_ratio": ratio,
                 "saturation_flag": flag,
-                "reading": (f"{industry['name']} {bd['competitor_count']}곳 · 동네 평균 {bd['neighborhood_avg']}곳"
-                            f"(평균의 {ratio}배) → {flag}."),
+                # "평균의 0.85배" 같은 배수 표현이 무슨 뜻인지 바로 안 와닿는다는 피드백 반영 —
+                # 원시 개수(비교 근거)는 남기고, 판정 이유는 배수 대신 쉬운 말로 풀어쓴다.
+                "reading": (
+                    f"이 근처에 {industry['name']}가 {bd['competitor_count']}곳 있어요"
+                    f"(동네 평균 {bd['neighborhood_avg']}곳). "
+                    + (
+                        "동네 평균보다 적어서 경쟁 부담이 적어요."
+                        if flag == "기회"
+                        else "동네 평균보다 조금 많아서 경쟁이 있는 편이에요."
+                        if flag == "주의"
+                        else "동네 평균보다 훨씬 많아서 경쟁이 심한 편이에요."
+                    )
+                ),
             },
             "area_fit": {
                 "area_m2": _tag(vac.get("area_m2"), "실측" if not vac.get("is_seed") else "예시"),
@@ -194,6 +221,13 @@ def build_report(industry_id, region_code, vacancies, industries, grid_votes_all
                 "coupon_value_won": coupon_value,
                 "coupon_total_won": round(waiting * coupon_value),
                 "source": "API",
+            },
+            "facilities": {
+                "toilet": _fac_field("화장실"),
+                "water_drain": _fac_field("상하수도"),
+                "gas": _fac_field("가스"),
+                "vent_hood": _fac_field("환기후드"),
+                "parking": _fac_field("주차"),
             },
         })
 
