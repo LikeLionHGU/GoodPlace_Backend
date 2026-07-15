@@ -6,12 +6,15 @@
 - 리포트 1순위 = 지도 배치의 배정 업종(핀 일치). 그래서 배치를 그 공실의 region_code
   '전체'로 돌려 build_report 에 넘긴다(리포트가 공실별로 재랭킹하면 겹침이 되살아나므로 금지).
 - 리포트는 점수를 다시 매기지 않는다 — 값은 engine breakdown 그대로(report.py 담당).
+- ai_explanation: 확정 수치 기반 AI 해설(P4). 키(OPENAI_API_KEY) 없으면 None(리포트는 그대로).
+  ?explain=false 로 끌 수 있음.
 """
 import logging
 
 from fastapi import APIRouter, HTTPException
 
 import adapters
+import ai_explain
 import db
 from report import build_report
 
@@ -20,7 +23,7 @@ log = logging.getLogger("myeongdang.report")
 
 
 @router.get("/report/{vacancy_id}", summary="공실 창업 리포트(5요소 · 지도 배치와 1순위 일치)")
-def get_report(vacancy_id: str):
+def get_report(vacancy_id: str, explain: bool = True):
     conn = db.connect()
     try:
         row = conn.execute(
@@ -43,6 +46,9 @@ def get_report(vacancy_id: str):
     report = build_report(vacancy_id, vacancies, industries, vote_counts, campaign=campaign)
     if report is None:              # region 필터로 사라진 경우 등 방어
         raise HTTPException(status_code=404, detail=f"없는 공실: {vacancy_id}")
-    log.info("GET /report/%s region_code=%s -> %s",
-             vacancy_id, region_code, report["conclusion"]["recommended_industry"])
+    # AI 해설(P4): 키 있으면 확정 수치 기반 3~5문장, 없으면 None(리포트는 그대로 — 조용한 대체 금지).
+    report["ai_explanation"] = ai_explain.generate_explanation(report) if explain else None
+    log.info("GET /report/%s region_code=%s -> %s (ai=%s)",
+             vacancy_id, region_code, report["conclusion"]["recommended_industry"],
+             bool(report["ai_explanation"]))
     return report
